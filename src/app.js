@@ -9,8 +9,9 @@ const COLORS=['#A86D12','#4F5FB0','#23805F','#B4463A','#7A4FA8','#2B7FA6','#9A7A
 const TYPES={flakon:'Flakon',tester:'Tester',sospiro:'Sospiro'};
 const GLABEL={D:'Damskie',M:'Męskie',U:'Unisex',Z:'Zestawy'};
 const GONE={D:'Damskie',M:'Męskie',U:'Unisex',Z:'Zestaw'};
-// Fragrantica ma w adresie numer perfum, więc idziemy przez "\" w DuckDuckGo = od razu pierwszy wynik z fragrantica.pl
-const frag=q=>'https://duckduckgo.com/?q='+encodeURIComponent('\\ site:fragrantica.pl '+q.toLowerCase());
+// Fragrantica ma w adresie numer perfum, więc szukamy w Google tylko na fragrantica.pl
+// (DuckDuckGo z "\" blokował takie zapytania błędem 418)
+const frag=q=>'https://www.google.com/search?q='+encodeURIComponent('site:fragrantica.pl '+q.toLowerCase());
 // Marki z więcej niż jednym słowem (reszta: marka = pierwsze słowo)
 const BRANDS=['ACQUA DI PARMA','BOTTEGA VENETA','BY KILIAN','CALVIN KLEIN','CAROLINA HERRERA','CHRISTIAN DIOR','COSTUME NATIONAL','DOLCE & GABBANA','ESTEE LAUDER','GIORGIO ARMANI','HAUTE FRAGRANCE COMPANY','HUGO BOSS','ISSEY MIYAKE','ISSEAY MIYAKE','JEAN PAUL GAULTIER','JIMMY CHOO','JO MALONE LONDON','JO MALONE','LE LABO','LOUIS VUITTON','MAISON FRANCIS KURKDJIAN','MARC JACOBS','MATIERE PREMIERE','MICHAEL KORS','MIU MIU','MONT BLANC','NARCISO RODRIGUEZ','ORTO PARISI','PACO RABANNE','PARFUMS DE MARLY',"PENHALIGON'S",'PHILIPP PLEIN','ROBERTO CAVALLI','THIERRY MUGLER','THOMAS KOSMALA','TIZIANA TERENZI','TOM FORD','VICTORIA SECRET',"VICTORIA'S SECRET",'VIKTOR & ROLF','VIKTOR ROLF','YVES SAINT LAURENT','ZADIG & VOLTAIRE'].sort((a,b)=>b.length-a.length);
 const BALIAS={'ISSEAY MIYAKE':'ISSEY MIYAKE','VIKTOR ROLF':'VIKTOR & ROLF','VICTORIA SECRET':"VICTORIA'S SECRET"};
