@@ -112,7 +112,9 @@ const plural=n=>n+(n===1?' osoba':n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?' osob
 function renderObar(){const st=S.settings;
   const chip=(k,lab,ps)=>`<button class="chip${String(ui.wf)===String(k)?' on':''}" data-wf="${k}">${esc(lab)} <span class="cnt">${ps.length} os. · ${zl(ps.reduce((a,p)=>a+pTot(p),0))}</span></button>`;
   $('#obar').innerHTML=`<div class="seg">${chip('all','Wszyscy',S.people)}${st.partners.map((n,i)=>chip(i,n,S.people.filter(p=>p.w===i))).join('')}</div>
-    <div class="obar-r"><label class="sw"><input type="checkbox" id="dlvMode"${st.dlv?' checked':''}> Po dostawie: zaznaczam braki</label><button class="btn" id="openDlv">Podsumowanie dostawy</button></div>`;}
+    <div class="obar-r"><label class="sw"><input type="checkbox" id="dlvMode"${st.dlv?' checked':''}> Po dostawie: zaznaczam braki</label><button class="btn" id="openDlv">Podsumowanie dostawy</button>
+      <button class="btn" id="expP" title="Zapisz plik z osobami z tej listy, żeby wysłać go wspólnikowi">Eksportuj ${ui.wf==='all'?'wszystkich':'osoby: '+esc(wName(ui.wf))}</button>
+      <button class="btn" id="impP" title="Wczytaj plik z osobami od wspólnika">Importuj osoby</button></div>`;}
 function renderPeople(){
   const list=S.people.filter(p=>ui.wf==='all'||p.w===ui.wf);
   $('#pcount').textContent=list.length?plural(list.length):'';
@@ -141,10 +143,11 @@ function renderPerson(){
       <button class="paidbtn${settled(p)?' on':''}" id="ppaid" title="${settled(p)?'Kliknij, aby oznaczyć jako niezapłacone':'Kliknij, gdy zapłaci całość'}">${paidBtnHtml(p)}</button>
       <button class="btn" data-tab="cat">Dodaj perfumy</button>
       <button class="btn" id="pmsg" title="Tekst do wysłania tej osobie, żeby sprawdziła zamówienie">Wiadomość dla osoby</button>
+      <button class="btn" id="pexp" title="Zapisz plik z tą osobą, żeby wysłać go wspólnikowi">Eksportuj</button>
       <button class="btn ghost danger" id="pdel">Usuń osobę</button></div>
     <div class="prates">${rateInputs(p.r,'data-rate')}</div>
     ${p.items.length?`<div class="lines-wrap"><table class="lines"><thead><tr><th>Perfumy</th><th>Ilość</th>${dlv?'<th>Przyszło</th>':''}<th class="r">Cena za szt.</th><th class="r">Razem</th><th><span class="sr">Usuń</span></th></tr></thead><tbody>
-    ${p.items.map((l,i)=>`<tr data-i="${i}"${l.m?` class="${l.m===l.q?'gone':'part'}"`:''}><td><div class="lname">${esc(l.n)}</div><div class="badges">${l.k!=='flakon'?`<span class="b ${l.k==='tester'?'t':'p'}">${TYPES[l.k]}</span>`:''}${l.s?`<span class="b s">+${l.s} zł dopłaty</span>`:''}${l.m?`<span class="b x">nie przyszło: ${l.m} szt.</span>`:''}${flag(l)}</div></td>
+    ${p.items.map((l,i)=>`<tr data-i="${i}"${l.m?` class="${l.m===l.q?'gone':'part'}"`:''}><td><a class="lname" href="${esc(frag((catOf(l)||split(l.n)).fq))}" target="_blank" rel="noopener" title="Otwórz na Fragrantica">${esc(l.n)}<span class="ext" aria-hidden="true">↗</span></a><div class="badges">${l.k!=='flakon'?`<span class="b ${l.k==='tester'?'t':'p'}">${TYPES[l.k]}</span>`:''}${l.s?`<span class="b s">+${l.s} zł dopłaty</span>`:''}${l.m?`<span class="b x">nie przyszło: ${l.m} szt.</span>`:''}${flag(l)}</div></td>
       <td><div class="qty"><button data-dq="-1" aria-label="Mniej">−</button><span>${l.q}</span><button data-dq="1" aria-label="Więcej">+</button></div></td>
       ${dlv?`<td>${arrCell(l)}</td>`:''}
       <td><div class="pricecell">${l.o!=null?`<button class="reset" data-reset title="Wróć do stawki osoby">auto</button>`:''}<div class="money pricein${l.o!=null?' ov':''}"><input class="in" data-ov inputmode="decimal" value="${unit(p,l)}" aria-label="Cena za sztukę" title="${l.o!=null?'Cena ręczna':'Stawka '+TYPES[l.k].toLowerCase()+(l.s?' + dopłata '+l.s+' zł':'')}"></div></div></td>
@@ -201,7 +204,9 @@ $('#partners').addEventListener('change',e=>{const a=e.target.value.split(',').m
   if(a.length)S.settings.partners=a;else toast('Musi być przynajmniej jeden wspólnik');
   if(ui.wf!=='all'&&ui.wf>=S.settings.partners.length)ui.wf='all';save();renderAll();});
 $('#obar').addEventListener('click',e=>{const c=e.target.closest('[data-wf]');if(c){ui.wf=c.dataset.wf==='all'?'all':+c.dataset.wf;renderAll();return}
-  if(e.target.id==='openDlv')openDelivery();});
+  if(e.target.id==='openDlv')openDelivery();
+  if(e.target.id==='expP')exportPeople(S.people.filter(p=>ui.wf==='all'||p.w===ui.wf),ui.wf==='all'?'wszyscy':wName(ui.wf));
+  if(e.target.id==='impP')$('#impFile').click();});
 $('#obar').addEventListener('change',e=>{if(e.target.id==='dlvMode'){S.settings.dlv=e.target.checked;save();renderAll()}});
 $('#people').addEventListener('click',e=>{const pb=e.target.closest('[data-paid]');if(pb){togglePaid(person(pb.dataset.paid));return}
   const li=e.target.closest('.person');if(li){ui.sel=li.dataset.id;renderAll()}});
@@ -221,6 +226,7 @@ pp.addEventListener('change',e=>{const t=e.target,p=person(ui.sel);if(!p)return;
 pp.addEventListener('click',e=>{const p=person(ui.sel);if(!p)return;const t=e.target.closest('button');if(!t)return;
   if(t.id==='ppaid'){togglePaid(p);return}
   if(t.id==='pmsg'){openPm(p);return}
+  if(t.id==='pexp'){exportPeople([p],p.name);return}
   if(t.id==='pdel'){ask('Usunąć '+p.name+' razem z zamówieniem?','Usuń').then(ok=>{if(ok){S.people=S.people.filter(x=>x!==p);ui.sel=S.people[0]?.id||null;save();renderAll()}});return}
   const tr=t.closest('tr');if(!tr)return;const i=+tr.dataset.i;const l=p.items[i];
   if(t.dataset.dq){l.q+= +t.dataset.dq;l.m=Math.min(l.m,l.q);if(l.q<1)p.items.splice(i,1);save();renderAll();return}
@@ -255,6 +261,34 @@ $('#catFile').addEventListener('change',async e=>{const f=e.target.files[0];e.ta
       +(pr.gone.length?` W zamówieniach brakuje ${pr.gone.length} poz. (${who.join(', ')}), oznaczone na czerwono.`:'')
       +(pr.diff.length?` ${pr.diff.length} poz. ma w katalogu inny rodzaj lub dopłatę.`:''),pr.gone.length||pr.diff.length?12000:4000);
   }catch(err){toast('Nie udało się odczytać pliku. Sprawdź, czy to eksport HTML z Telegrama.')}});
+
+/* eksport / import osób: plik .json do przesłania wspólnikowi */
+const EXP='zamowienia-perfum-osoby';
+function exportPeople(ps,label){if(!ps.length){toast('Brak osób do eksportu');return}
+  // wn = nazwa wspólnika; u drugiej osoby lista wspólników może mieć inną kolejność
+  const data={type:EXP,v:1,at:new Date().toISOString(),people:ps.map(p=>Object.assign({},p,{wn:wName(p.w)}))};
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,1)],{type:'application/json'}));
+  a.download=('osoby-'+label+'-'+new Date().toISOString().slice(0,10)+'.json').replace(/[\\/:*?"<>|\s]+/g,'_');
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+  toast('Zapisano plik: '+plural(ps.length)+'. Wyślij go wspólnikowi.');}
+$('#impFile').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  let d=null;try{d=JSON.parse(await f.text())}catch(_){}
+  if(!d||d.type!==EXP||!Array.isArray(d.people)||!d.people.length){toast('To nie jest plik z eksportu osób z tej aplikacji.');return}
+  const inc=normalizeState({people:d.people,settings:S.settings}).people;
+  inc.forEach((p,i)=>{p.wn=typeof d.people[i].wn==='string'?d.people[i].wn.trim():''});
+  const dup=inc.filter(p=>person(p.id));let replace=false;
+  if(dup.length)replace=await ask(`${dup.map(p=>p.name).join(', ')} ${dup.length===1?'jest':'są'} już u Ciebie (z wcześniejszego importu).\n\nZastąpić wersją z pliku? „Anuluj” pominie te osoby, a resztę doda.`,'Zastąp');
+  let added=0,repl=0;
+  inc.forEach(p=>{const old=person(p.id);if(old&&!replace)return;
+    if(p.wn){let w=S.settings.partners.findIndex(n=>n.toLowerCase()===p.wn.toLowerCase());if(w<0){S.settings.partners.push(p.wn);w=S.settings.partners.length-1}p.w=w}
+    delete p.wn;
+    if(old){p.c=old.c;S.people[S.people.indexOf(old)]=p;repl++}
+    else{p.c=S.people.reduce((m,x)=>Math.max(m,(x.c||0)+1),0);S.people.push(p);added++}});
+  if(!added&&!repl){toast('Nic nie zaimportowano.');return}
+  ui.sel=inc.find(p=>person(p.id)===p)?.id||ui.sel;ui.wf='all';
+  relink();save();renderAll();
+  const pr=problems();
+  toast(`Zaimportowano: ${added?'dodano '+plural(added):''}${added&&repl?', ':''}${repl?'zastąpiono '+plural(repl):''}.`+(pr.gone.length?` ${pr.gone.length} poz. nie ma w Twoim katalogu (oznaczone na czerwono).`:''),pr.gone.length?9000:4000);});
 
 /* wholesale message */
 const dlg=$('#msgDlg');

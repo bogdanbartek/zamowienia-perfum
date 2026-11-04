@@ -10,6 +10,7 @@ Aplikacja na Windows do zbierania zamówień perfum od znajomych i składania je
 - Oznaczanie, kto już zapłacił, oraz suma: razem, zapłacone, do odebrania.
 - Generator wiadomości do hurtowni w gotowym formacie, z danymi do wysyłki i numerem paczkomatu.
 - Przycisk "Aktualizuj katalog": wybierasz nowy eksport `messages.html` i lista się odświeża.
+- Eksport i import osób: plik `.json` z osobami (jedną albo wszystkimi od danego wspólnika) do wysłania drugiemu wspólnikowi, który wczytuje go przyciskiem "Importuj osoby".
 
 Dane zapisują się lokalnie na komputerze (każdy użytkownik ma swoje osobne dane).
 
