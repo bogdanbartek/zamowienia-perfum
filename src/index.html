@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zamówienia perfum</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Zamówienia perfum</h1>
+      <div class="sync"><span>Dane zapisują się na tym komputerze</span></div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="updCat">Aktualizuj katalog</button>
+      <input type="file" id="catFile" accept=".html,text/html" class="sr">
+      <button class="btn primary" id="openMsg">Wiadomość do hurtowni</button>
+    </div>
+    <section class="tally" id="tally" aria-label="Podsumowanie"></section>
+  </header>
+
+  <main class="grid">
+    <section class="panel" aria-label="Osoby">
+      <div class="panel-h"><h2>Osoby</h2><span class="hint" id="pcount"></span></div>
+      <ul class="people" id="people"></ul>
+      <form class="addp" id="addPerson">
+        <input class="in" id="newName" placeholder="Imię, np. Adrian" autocomplete="off" aria-label="Imię nowej osoby">
+        <button class="btn" type="submit">Dodaj</button>
+      </form>
+      <div class="defaults">
+        <h3>Stawki dla nowych osób</h3>
+        <div class="rates" id="defRates"></div>
+        <button class="btn ghost danger" id="clearAll" style="margin-top:10px;padding-left:0">Wyczyść całe zamówienie</button>
+      </div>
+    </section>
+
+    <section class="panel" id="personPanel" aria-label="Zamówienie osoby"></section>
+
+    <section class="panel cat" aria-label="Katalog">
+      <div class="panel-h"><h2>Katalog</h2><span class="hint" id="catInfo"></span></div>
+      <div class="filters">
+        <input class="in" id="q" type="search" placeholder="Szukaj po nazwie, np. sauvage" autocomplete="off" aria-label="Szukaj perfum">
+        <div class="seg" id="gf"></div>
+        <div class="seg" id="tf"></div>
+      </div>
+      <ul class="clist" id="clist"></ul>
+    </section>
+  </main>
+</div>
+
+<dialog id="msgDlg" aria-labelledby="msgTitle">
+  <div class="dh"><h2 id="msgTitle">Wiadomość do hurtowni</h2><button class="x" id="closeMsg" aria-label="Zamknij">×</button></div>
+  <div class="dscroll"><div class="db">
+    <div class="form" id="msgForm">
+      <div class="f"><label for="m_wh">Magazyn</label><input class="in" id="m_wh" data-k="warehouse"></div>
+      <h3>Dostawa i płatność</h3>
+      <div class="f"><label for="m_del">Sposób</label><input class="in" id="m_del" data-k="delivery"></div>
+      <div class="f"><label for="m_lock">Nr paczkomatu</label><input class="in" id="m_lock" data-k="locker" placeholder="np. RZE01M"></div>
+      <h3>Dane do przesyłki</h3>
+      <div class="row2">
+        <div class="f"><label for="m_name">Imię i nazwisko</label><input class="in" id="m_name" data-k="name" autocomplete="name"></div>
+        <div class="f"><label for="m_phone">Telefon</label><input class="in" id="m_phone" data-k="phone" autocomplete="tel"></div>
+      </div>
+      <div class="f"><label for="m_mail">E-mail</label><input class="in" id="m_mail" data-k="email" autocomplete="email"></div>
+      <div class="row2">
+        <div class="f"><label for="m_street">Ulica i numer</label><input class="in" id="m_street" data-k="street" autocomplete="street-address"></div>
+        <div class="f"><label for="m_city">Kod i miasto</label><input class="in" id="m_city" data-k="city" placeholder="00-120 Warszawa"></div>
+      </div>
+      <h3>Cena hurtowni za sztukę</h3>
+      <div class="row3">
+        <div class="f rate"><label for="m_pf">Flakon</label><div class="money"><input class="in" id="m_pf" data-k="wf" inputmode="decimal"></div></div>
+        <div class="f rate"><label for="m_pt">Tester</label><div class="money"><input class="in" id="m_pt" data-k="wt" inputmode="decimal"></div></div>
+        <div class="f rate"><label for="m_ps">Sospiro</label><div class="money"><input class="in" id="m_ps" data-k="ws" inputmode="decimal"></div></div>
+      </div>
+      <p class="hint" style="margin:0">Dopłaty z katalogu (+25 zł itd.) doliczają się do kwoty osobno. Puste pole zostawia w tekście [CENA].</p>
+    </div>
+    <div class="preview">
+      <textarea id="msgText" aria-label="Treść wiadomości" spellcheck="false"></textarea>
+      <div class="pv-actions">
+        <span class="hint" id="msgHint">Możesz poprawić tekst przed skopiowaniem.</span>
+        <div style="display:flex;gap:8px"><button class="btn" id="regen">Wygeneruj od nowa</button><button class="btn primary" id="copyMsg">Kopiuj</button></div>
+      </div>
+    </div>
+  </div></div>
+</dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="parser.js"></script>
+<script src="catalog.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
