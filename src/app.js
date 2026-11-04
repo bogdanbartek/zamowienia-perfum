@@ -8,18 +8,39 @@ const uid=()=>Math.random().toString(36).slice(2,10);
 const COLORS=['#A86D12','#4F5FB0','#23805F','#B4463A','#7A4FA8','#2B7FA6','#9A7A12','#B04F86','#5E7A2E','#6B6579'];
 const TYPES={flakon:'Flakon',tester:'Tester',sospiro:'Sospiro'};
 const GLABEL={D:'Damskie',M:'Męskie',U:'Unisex',Z:'Zestawy'};
+const GONE={D:'Damskie',M:'Męskie',U:'Unisex',Z:'Zestaw'};
+// Fragrantica ma w adresie numer perfum, więc idziemy przez "\" w DuckDuckGo = od razu pierwszy wynik z fragrantica.pl
+const frag=q=>'https://duckduckgo.com/?q='+encodeURIComponent('\\ site:fragrantica.pl '+q.toLowerCase());
+// Marki z więcej niż jednym słowem (reszta: marka = pierwsze słowo)
+const BRANDS=['ACQUA DI PARMA','BOTTEGA VENETA','BY KILIAN','CALVIN KLEIN','CAROLINA HERRERA','CHRISTIAN DIOR','COSTUME NATIONAL','DOLCE & GABBANA','ESTEE LAUDER','GIORGIO ARMANI','HAUTE FRAGRANCE COMPANY','HUGO BOSS','ISSEY MIYAKE','ISSEAY MIYAKE','JEAN PAUL GAULTIER','JIMMY CHOO','JO MALONE LONDON','JO MALONE','LE LABO','LOUIS VUITTON','MAISON FRANCIS KURKDJIAN','MARC JACOBS','MATIERE PREMIERE','MICHAEL KORS','MIU MIU','MONT BLANC','NARCISO RODRIGUEZ','ORTO PARISI','PACO RABANNE','PARFUMS DE MARLY',"PENHALIGON'S",'PHILIPP PLEIN','ROBERTO CAVALLI','THIERRY MUGLER','THOMAS KOSMALA','TIZIANA TERENZI','TOM FORD','VICTORIA SECRET',"VICTORIA'S SECRET",'VIKTOR & ROLF','VIKTOR ROLF','YVES SAINT LAURENT','ZADIG & VOLTAIRE'].sort((a,b)=>b.length-a.length);
+const BALIAS={'ISSEAY MIYAKE':'ISSEY MIYAKE','VIKTOR ROLF':'VIKTOR & ROLF','VICTORIA SECRET':"VICTORIA'S SECRET"};
+const KEEP=new Set(['CK','DKNY','YSL','II','III','IV','VIP','NYC','XS']),LOW=new Set(['DE','DI','DU','DES','OF','AND']);
+const tc=s=>s.split(' ').map((w,i)=>KEEP.has(w)||w.length===1?w:i&&LOW.has(w)?w.toLowerCase():w.toLowerCase().replace(/^([^\p{L}\d]*)((?:[ld]')?\p{L})/u,(m,a,b)=>a+b.toUpperCase())).join(' ');
+// "CHRISTIAN DIOR SAUVAGE 100ML EDP PREMIUM" -> marka, model, pojemność, rodzaj, dopisek
+function split(name){
+  const u=name.toUpperCase().replace(/[’‘`]/g,"'").replace(/\s+/g,' ').trim();
+  const br=BRANDS.find(b=>u===b||u.startsWith(b+' ')||(b.endsWith("'S")&&u.startsWith(b)))||u.split(' ')[0];
+  const rest=u.slice(br.length).trim();let mo=rest,tail='';
+  const vm=rest.match(/(\d+(?:[.,]\d+)?)\s*ML\b/),cm=rest.match(/(^|[^A-Z])(ED[PTC]|EXTRAIT|EAU DE (PARFUM|TOILETTE))/);
+  if(vm){mo=rest.slice(0,vm.index);tail=rest.slice(vm.index+vm[0].length)}else if(cm){mo=rest.slice(0,cm.index);tail=rest.slice(cm.index)}
+  const sq=tail.replace(/\(PUSZKA\)/g,'').replace(/[^A-Z]/g,'');
+  const conc=/EXTRAIT/.test(sq)?'Extrait':/EAUDEPARFUM|EDP/.test(sq)?'EDP':/EAUDETOILETTE|EDT/.test(sq)?'EDT':/EDC/.test(sq)?'EDC':/PARFUM/.test(sq)?'Parfum':'';
+  const ex=tail.replace(/\bED\s*(\(PUSZKA\))\s*T\b/,'$1').replace(/EAU DE (PARFUM|TOILETTE)|EXTRAIT( DE PARFUM)?|(^|[^A-Z])ED[PTC]/g,'$3 ').replace(/\(\s*/g,' (').replace(/\s+/g,' ').trim();
+  mo=mo.replace(/(\s+ML)?[\s,(-]*$/,'').trim();const b=BALIAS[br]||br;
+  return {br:tc(b),mo:tc(mo),vol:vm?vm[1].replace(',','.')+' ml':'',conc,ex:ex&&tc(ex),fq:(b+' '+mo).trim()};
+}
 
 /* ---------- state ---------- */
 const blank=()=>({people:[],settings:{rates:{flakon:85,tester:70,sospiro:60},warehouse:'',delivery:'Za pobraniem InPost Paczkomat',locker:'',name:'',phone:'',email:'',street:'',city:'',wf:'',wt:'',ws:''}});
 let S=blank();
 let C={warehouse:DEFAULT_CATALOG.warehouse,items:DEFAULT_CATALOG.items,updatedAt:null};
 let CAT=[],CATMAP=new Map();
-const ui={sel:null,q:'',g:'all',t:'all',limit:120};
+const ui={sel:null,q:'',b:'all',g:'all',t:'all',limit:120,tab:'cat'};
 
 function expand(row){const [raw,g,t,p]=row;const sm=raw.toUpperCase().match(/\+\s*(\d+)\s*Z[ŁL]/);
   const name=raw.replace(/\+\s*\d+\s*z[łl]/i,' ').replace(/\s+/g,' ').trim();
   const it={id:(t?'T:':'F:')+name.toUpperCase(),raw,name,g,t:!!t,p:!!p,s:sm?+sm[1]:0};
-  it.k=it.t?'tester':it.p?'sospiro':'flakon';it.key=it.name.toUpperCase();return it;}
+  it.k=it.t?'tester':it.p?'sospiro':'flakon';Object.assign(it,split(name));it.key=(it.name+' '+it.fq).toUpperCase().replace(/[’‘`]/g,"'");return it;}
 function buildCat(){CAT=C.items.map(expand);CATMAP=new Map(CAT.map(i=>[i.id,i]));}
 
 const person=id=>S.people.find(p=>p.id===id);
@@ -28,7 +49,7 @@ const pQty=p=>p.items.reduce((a,l)=>a+l.q,0);
 const pTot=p=>p.items.reduce((a,l)=>a+unit(p,l)*l.q,0);
 
 /* ---------- persistence (localStorage, tylko ten komputer) ---------- */
-const LS='perfumy-zamowienia-v1',LSC='perfumy-katalog-v1';
+const LS='perfumy-zamowienia-v1',LSC='perfumy-katalog-v1',LST='perfumy-zakladka';
 function lsGet(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){toast('Nie udało się zapisać danych')}}
 let saveT;function save(){clearTimeout(saveT);saveT=setTimeout(()=>lsSet(LS,S),250)}
@@ -67,11 +88,12 @@ function rateInputs(rates,attr){return Object.keys(TYPES).map(k=>`<div class="ra
 function renderDefaults(){$('#defRates').innerHTML=rateInputs(S.settings.rates,'data-def');}
 function renderPerson(){
   const el=$('#personPanel');const p=person(ui.sel);
-  if(!p){el.innerHTML=`<div class="empty" style="padding:70px 24px"><strong>${S.people.length?'Wybierz osobę z listy':'Zacznij od dodania osoby'}</strong>Potem klikaj perfumy w katalogu, żeby dodać je do jej zamówienia.</div>`;return}
+  if(!p){el.innerHTML=`<div class="empty" style="padding:70px 24px"><strong>${S.people.length?'Wybierz osobę z listy':'Zacznij od dodania osoby'}</strong>Potem w zakładce Lista perfum klikaj perfumy, żeby dodać je do jej zamówienia.</div>`;return}
   const missing=l=>!CATMAP.has(l.id);
   el.innerHTML=`<div class="ph">
       <input class="pname" id="pname" value="${esc(p.name)}" aria-label="Imię">
       <button class="paidbtn${p.paid?' on':''}" id="ppaid"><span class="box"></span>${p.paid?'Zapłacił(a)':'Nie zapłacił(a)'}</button>
+      <button class="btn" data-tab="cat">Dodaj perfumy</button>
       <button class="btn ghost danger" id="pdel">Usuń osobę</button></div>
     <div class="prates">${rateInputs(p.r,'data-rate')}</div>
     ${p.items.length?`<div class="lines-wrap"><table class="lines"><thead><tr><th>Perfumy</th><th>Ilość</th><th class="r">Cena za szt.</th><th class="r">Razem</th><th><span class="sr">Usuń</span></th></tr></thead><tbody>
@@ -80,32 +102,49 @@ function renderPerson(){
       <td><div class="pricecell">${l.o!=null?`<button class="reset" data-reset title="Wróć do stawki osoby">auto</button>`:''}<div class="money pricein${l.o!=null?' ov':''}"><input class="in" data-ov inputmode="decimal" value="${unit(p,l)}" aria-label="Cena za sztukę" title="${l.o!=null?'Cena ręczna':'Stawka '+TYPES[l.k].toLowerCase()+(l.s?' + dopłata '+l.s+' zł':'')}"></div></div></td>
       <td class="r" data-ls>${zl(unit(p,l)*l.q)}</td>
       <td class="r"><button class="x" data-rm aria-label="Usuń pozycję">×</button></td></tr>`).join('')}
-    </tbody></table></div>`:`<div class="empty" style="border-top:1px solid var(--line)"><strong>${esc(p.name)} nie ma jeszcze perfum</strong>Kliknij pozycję w katalogu, żeby ją dodać.</div>`}
+    </tbody></table></div>`:`<div class="empty" style="border-top:1px solid var(--line)"><strong>${esc(p.name)} nie ma jeszcze perfum</strong>Kliknij „Dodaj perfumy”, żeby wybrać je z listy.</div>`}
     <div class="pfoot"><span class="hint">${pQty(p)} szt. Zmiana stawki przelicza wszystkie pozycje bez ręcznej ceny.</span><span class="tot" id="ptot">${zl(pTot(p))}</span></div>`;
 }
 function hl(name,q){if(!q)return esc(name);let out=esc(name);q.split(/\s+/).filter(Boolean).forEach(w=>{const re=new RegExp('('+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','ig');out=out.replace(re,'<mark>$1</mark>')});return out}
 function renderCatalog(){
-  const q=ui.q.trim().toUpperCase();const words=q.split(/\s+/).filter(Boolean);
-  const list=CAT.filter(i=>(ui.g==='all'||i.g===ui.g)&&(ui.t==='all'||(ui.t==='T'?i.t:ui.t==='P'?i.p:!i.t))&&words.every(w=>i.key.includes(w)));
+  const q=ui.q.trim().toUpperCase().replace(/[’‘`]/g,"'");const words=q.split(/\s+/).filter(Boolean);
+  const list=CAT.filter(i=>(ui.b==='all'||i.br===ui.b)&&(ui.g==='all'||i.g===ui.g)&&(ui.t==='all'||(ui.t==='T'?i.t:ui.t==='P'?i.p:!i.t))&&words.every(w=>i.key.includes(w)));
   const p=person(ui.sel);const inCart=new Map(p?p.items.map(l=>[l.id,l.q]):[]);
-  $('#catInfo').textContent=`${list.length} z ${CAT.length}`;
-  $('#clist').innerHTML=list.slice(0,ui.limit).map(i=>`<li class="ci"><div><div class="cn">${hl(i.name,ui.q.trim())}</div><div class="badges">${i.t?'<span class="b t">Tester</span>':''}${i.p?'<span class="b p">Sospiro promo</span>':''}${i.s?`<span class="b s">+${i.s} zł</span>`:''}<span class="cp">${GLABEL[i.g]||''}${p?`, dla ${esc(p.name)}: ${zl((num(p.r[i.k])||0)+i.s)}`:''}</span></div></div>
-    <button class="addbtn${inCart.has(i.id)?' in-cart':''}" data-add="${esc(i.id)}" ${p?'':'disabled title="Najpierw wybierz osobę"'}>${inCart.has(i.id)?'+1 (×'+inCart.get(i.id)+')':'Dodaj'}</button></li>`).join('')
+  $('#catInfo').textContent=`${list.length} z ${CAT.length}`;const hq=ui.q.trim();
+  $('#clist').innerHTML=(list.length?`<li class="chead" aria-hidden="true"><span>Marka</span><span>Model</span><span>Płeć</span><span>Rodzaj</span><span>Pojemność</span><span></span><span class="r">Cena</span><span></span></li>`:'')
+    +list.slice(0,ui.limit).map(i=>{const href=frag(i.fq);return `<li class="ci">
+    <a class="cb" href="${esc(href)}" target="_blank" rel="noopener" tabindex="-1">${hl(i.br,hq)}</a>
+    <a class="cm" href="${esc(href)}" target="_blank" rel="noopener" title="Otwórz na Fragrantica">${i.mo?hl(i.mo,hq):'—'}<span class="ext" aria-hidden="true">↗</span></a>
+    <span class="cg">${GONE[i.g]||''}</span><span class="cc">${i.conc}</span><span class="cv">${i.vol}</span>
+    <div class="badges">${i.t?'<span class="b t">Tester</span>':''}${i.p?'<span class="b p">Sospiro promo</span>':''}${i.s?`<span class="b s">+${i.s} zł</span>`:''}${i.ex?`<span class="b e">${esc(i.ex)}</span>`:''}</div>
+    <span class="cpr">${p?zl((num(p.r[i.k])||0)+i.s):''}</span>
+    <button class="addbtn${inCart.has(i.id)?' in-cart':''}" data-add="${esc(i.id)}" ${p?'':'disabled title="Najpierw wybierz osobę"'}>${inCart.has(i.id)?'+1 (×'+inCart.get(i.id)+')':'Dodaj'}</button></li>`}).join('')
     +(list.length>ui.limit?`<li><button class="btn more" id="more">Pokaż więcej (${list.length-ui.limit})</button></li>`:'')
     +(!list.length?`<li class="empty"><strong>Nic nie pasuje</strong>Zmień wyszukiwanie lub filtr.</li>`:'');
 }
 function renderFilters(){
   const g=[['all','Wszystkie'],['D','Damskie'],['M','Męskie'],['U','Unisex'],['Z','Zestawy']];
   const t=[['all','Flakony i testery'],['F','Tylko flakony'],['T','Tylko testery'],['P','Sospiro promo']];
+  const bc=new Map();CAT.forEach(i=>bc.set(i.br,(bc.get(i.br)||0)+1));if(!bc.has(ui.b))ui.b='all';
+  $('#bf').innerHTML=`<option value="all">Wszystkie marki</option>`+[...bc].sort((a,b)=>a[0].localeCompare(b[0],'pl')).map(([b,n])=>`<option value="${esc(b)}"${ui.b===b?' selected':''}>${esc(b)} (${n})</option>`).join('');
   $('#gf').innerHTML=g.map(([k,v])=>`<button class="chip${ui.g===k?' on':''}" data-g="${k}" aria-pressed="${ui.g===k}">${v}</button>`).join('');
   $('#tf').innerHTML=t.map(([k,v])=>`<button class="chip${ui.t===k?' on':''}" data-t="${k}" aria-pressed="${ui.t===k}">${v}</button>`).join('');
 }
-function renderAll(){renderTally();renderPeople();renderDefaults();renderPerson();renderFilters();renderCatalog();}
-function refreshNumbers(){renderTally();renderPeople();renderCatalog();const p=person(ui.sel);if(!p)return;
+function renderFor(){const p=person(ui.sel);
+  $('#forBar').innerHTML=S.people.length?`<label for="forSel">Dodajesz dla</label><select class="in" id="forSel">${S.people.map(x=>`<option value="${x.id}"${x.id===ui.sel?' selected':''}>${esc(x.name)}</option>`).join('')}</select>
+    ${p?`<span class="hint">${pQty(p)} szt., ${zl(pTot(p))}</span><button class="btn ghost" data-tab="orders">Zobacz zamówienie</button>`:''}`
+    :`<span class="hint">Żeby dodawać perfumy, najpierw dodaj osobę.</span><button class="btn" data-tab="orders">Dodaj osobę</button>`;}
+function renderTabs(){document.querySelectorAll('.tab').forEach(b=>{const on=b.dataset.tab===ui.tab;b.classList.toggle('on',on);b.setAttribute('aria-selected',on)});
+  $('#view-cat').hidden=ui.tab!=='cat';$('#view-orders').hidden=ui.tab!=='orders';$('#nord').textContent=S.people.length||'';}
+function setTab(t){ui.tab=t;lsSet(LST,t);renderTabs();window.scrollTo(0,0);}
+function renderAll(){renderTally();renderTabs();renderPeople();renderDefaults();renderPerson();renderFor();renderFilters();renderCatalog();}
+function refreshNumbers(){renderTally();renderPeople();renderFor();renderCatalog();const p=person(ui.sel);if(!p)return;
   document.querySelectorAll('#personPanel tr[data-i]').forEach(tr=>{const l=p.items[+tr.dataset.i];if(!l)return;tr.querySelector('[data-ls]').textContent=zl(unit(p,l)*l.q);const inp=tr.querySelector('[data-ov]');if(l.o==null&&document.activeElement!==inp)inp.value=unit(p,l)});
   const t=$('#ptot');if(t)t.textContent=zl(pTot(p));}
 
 /* ---------- events ---------- */
+document.addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)setTab(b.dataset.tab)});
+$('#forBar').addEventListener('change',e=>{if(e.target.id==='forSel'){ui.sel=e.target.value;renderAll()}});
 $('#addPerson').addEventListener('submit',e=>{e.preventDefault();const n=$('#newName').value.trim();if(!n)return;$('#newName').value='';addPerson(n);});
 $('#people').addEventListener('click',e=>{const pb=e.target.closest('[data-paid]');if(pb){const p=person(pb.dataset.paid);p.paid=!p.paid;save();renderAll();return}
   const li=e.target.closest('.person');if(li){ui.sel=li.dataset.id;renderAll()}});
@@ -115,7 +154,7 @@ $('#clearAll').addEventListener('click',()=>{if(!S.people.length)return;if(confi
 
 const pp=$('#personPanel');
 pp.addEventListener('input',e=>{const p=person(ui.sel);if(!p)return;const t=e.target;
-  if(t.id==='pname'){p.name=t.value||'Bez imienia';save();renderTally();renderPeople();renderCatalog();return}
+  if(t.id==='pname'){p.name=t.value||'Bez imienia';save();renderTally();renderPeople();renderFor();renderCatalog();return}
   if(t.dataset.rate){p.r[t.dataset.rate]=t.value;save();refreshNumbers();return}
   if(t.hasAttribute('data-ov')){const tr=t.closest('tr');const l=p.items[+tr.dataset.i];const v=num(t.value);if(v==null)return;l.o=v;t.parentElement.classList.add('ov');save();refreshNumbers();}});
 pp.addEventListener('change',e=>{if(e.target.hasAttribute('data-ov'))renderPerson();});
@@ -127,9 +166,12 @@ pp.addEventListener('click',e=>{const p=person(ui.sel);if(!p)return;const t=e.ta
   if(t.hasAttribute('data-rm')){p.items.splice(i,1);save();renderAll();return}
   if(t.hasAttribute('data-reset')){l.o=null;save();renderAll();}});
 
-$('#q').addEventListener('input',e=>{ui.q=e.target.value;ui.limit=120;renderCatalog();});
-$('#gf').addEventListener('click',e=>{const b=e.target.closest('[data-g]');if(b){ui.g=b.dataset.g;ui.limit=120;renderFilters();renderCatalog()}});
-$('#tf').addEventListener('click',e=>{const b=e.target.closest('[data-t]');if(b){ui.t=b.dataset.t;ui.limit=120;renderFilters();renderCatalog()}});
+$('#q').addEventListener('input',e=>{ui.q=e.target.value;ui.limit=120;$('#clist').scrollTop=0;renderCatalog();});
+$('#bf').addEventListener('change',e=>{ui.b=e.target.value;ui.limit=120;$('#clist').scrollTop=0;renderCatalog()});
+$('#gf').addEventListener('click',e=>{const b=e.target.closest('[data-g]');if(b){ui.g=b.dataset.g;ui.limit=120;$('#clist').scrollTop=0;renderFilters();renderCatalog()}});
+$('#tf').addEventListener('click',e=>{const b=e.target.closest('[data-t]');if(b){ui.t=b.dataset.t;ui.limit=120;$('#clist').scrollTop=0;renderFilters();renderCatalog()}});
+// doczytuj kolejne pozycje, gdy lista dojedzie prawie do końca
+$('#clist').addEventListener('scroll',e=>{const l=e.target;if($('#more')&&l.scrollTop+l.clientHeight>l.scrollHeight-400){ui.limit+=200;renderCatalog()}});
 $('#clist').addEventListener('click',e=>{const b=e.target.closest('[data-add]');if(b){const it=CATMAP.get(b.dataset.add);if(it)addItem(it);return}
   if(e.target.id==='more'){ui.limit+=200;renderCatalog()}});
 
@@ -179,5 +221,6 @@ $('#copyMsg').addEventListener('click',async()=>{const ta=$('#msgText');try{awai
 /* ---------- boot ---------- */
 const ls=lsGet(LS);if(ls)S=normalizeState(ls);
 const lc=lsGet(LSC);if(lc&&Array.isArray(lc.items))C=lc;
+const lt=lsGet(LST);ui.tab=lt==='cat'||lt==='orders'?lt:S.people.length?'cat':'orders';
 buildCat();ui.sel=S.people[0]?.id||null;renderAll();
 })();

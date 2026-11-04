@@ -22,7 +22,26 @@
     <section class="tally" id="tally" aria-label="Podsumowanie"></section>
   </header>
 
-  <main class="grid">
+  <nav class="tabs" role="tablist" aria-label="Widok">
+    <button class="tab" role="tab" data-tab="cat" id="tab-cat" aria-controls="view-cat">Lista perfum</button>
+    <button class="tab" role="tab" data-tab="orders" id="tab-orders" aria-controls="view-orders">Zamówienia osób<span class="n" id="nord"></span></button>
+  </nav>
+
+  <div class="view" id="view-cat" role="tabpanel" aria-labelledby="tab-cat">
+    <section class="panel cat" aria-label="Katalog">
+      <div class="panel-h"><h2>Katalog</h2><span class="hint" id="catInfo"></span></div>
+      <div class="forbar" id="forBar"></div>
+      <div class="filters">
+        <input class="in" id="q" type="search" placeholder="Szukaj po nazwie, np. sauvage" autocomplete="off" aria-label="Szukaj perfum">
+        <select class="in" id="bf" aria-label="Marka"></select>
+        <div class="seg" id="gf"></div>
+        <div class="seg" id="tf"></div>
+      </div>
+      <ul class="clist" id="clist"></ul>
+    </section>
+  </div>
+
+  <div class="view grid" id="view-orders" role="tabpanel" aria-labelledby="tab-orders">
     <section class="panel" aria-label="Osoby">
       <div class="panel-h"><h2>Osoby</h2><span class="hint" id="pcount"></span></div>
       <ul class="people" id="people"></ul>
@@ -38,17 +57,7 @@
     </section>
 
     <section class="panel" id="personPanel" aria-label="Zamówienie osoby"></section>
-
-    <section class="panel cat" aria-label="Katalog">
-      <div class="panel-h"><h2>Katalog</h2><span class="hint" id="catInfo"></span></div>
-      <div class="filters">
-        <input class="in" id="q" type="search" placeholder="Szukaj po nazwie, np. sauvage" autocomplete="off" aria-label="Szukaj perfum">
-        <div class="seg" id="gf"></div>
-        <div class="seg" id="tf"></div>
-      </div>
-      <ul class="clist" id="clist"></ul>
-    </section>
-  </main>
+  </div>
 </div>
 
 <dialog id="msgDlg" aria-labelledby="msgTitle">
