@@ -32,6 +32,10 @@ function createWindow() {
     return { action: 'deny' };
   });
   win.webContents.on('will-navigate', (e) => e.preventDefault());
+
+  // Po powrocie do okna (np. z przeglądarki albo okna wyboru pliku) oddaj klawiaturę stronie,
+  // inaczej na Windows pola tekstowe potrafią nie przyjmować pisania
+  win.on('focus', () => win.webContents.focus());
 }
 
 Menu.setApplicationMenu(null);

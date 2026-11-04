@@ -24,7 +24,7 @@
 
   <nav class="tabs" role="tablist" aria-label="Widok">
     <button class="tab" role="tab" data-tab="cat" id="tab-cat" aria-controls="view-cat">Lista perfum</button>
-    <button class="tab" role="tab" data-tab="orders" id="tab-orders" aria-controls="view-orders">Zamówienia osób<span class="n" id="nord"></span></button>
+    <button class="tab" role="tab" data-tab="orders" id="tab-orders" aria-controls="view-orders">Zamówienia osób<span class="n" id="nord"></span><span class="n warn" id="nwarn" title="Pozycje do sprawdzenia: brak w katalogu albo inna dopłata"></span></button>
   </nav>
 
   <div class="view" id="view-cat" role="tabpanel" aria-labelledby="tab-cat">
@@ -42,16 +42,19 @@
   </div>
 
   <div class="view grid" id="view-orders" role="tabpanel" aria-labelledby="tab-orders">
+    <div class="obar" id="obar"></div>
     <section class="panel" aria-label="Osoby">
       <div class="panel-h"><h2>Osoby</h2><span class="hint" id="pcount"></span></div>
       <ul class="people" id="people"></ul>
       <form class="addp" id="addPerson">
         <input class="in" id="newName" placeholder="Imię, np. Adrian" autocomplete="off" aria-label="Imię nowej osoby">
+        <select class="in" id="newW" aria-label="Od którego wspólnika"></select>
         <button class="btn" type="submit">Dodaj</button>
       </form>
       <div class="defaults">
         <h3>Stawki dla nowych osób</h3>
         <div class="rates" id="defRates"></div>
+        <div class="f rate" style="margin-top:10px"><label for="partners">Wspólnicy (oddziel przecinkiem)</label><input class="in" id="partners" autocomplete="off" style="text-align:left"></div>
         <button class="btn ghost danger" id="clearAll" style="margin-top:10px;padding-left:0">Wyczyść całe zamówienie</button>
       </div>
     </section>
@@ -87,6 +90,7 @@
       <p class="hint" style="margin:0">Dopłaty z katalogu (+25 zł itd.) doliczają się do kwoty osobno. Puste pole zostawia w tekście [CENA].</p>
     </div>
     <div class="preview">
+      <div class="warn" id="msgWarn" role="alert" hidden></div>
       <textarea id="msgText" aria-label="Treść wiadomości" spellcheck="false"></textarea>
       <div class="pv-actions">
         <span class="hint" id="msgHint">Możesz poprawić tekst przed skopiowaniem.</span>
@@ -94,6 +98,33 @@
       </div>
     </div>
   </div></div>
+</dialog>
+<dialog id="dlvDlg" aria-labelledby="dlvTitle">
+  <div class="dh"><h2 id="dlvTitle">Podsumowanie dostawy</h2><button class="x" id="closeDlv" aria-label="Zamknij">×</button></div>
+  <div class="dscroll"><div class="db">
+    <div class="form" id="dlvSum"></div>
+    <div class="preview">
+      <textarea id="dlvText" aria-label="Braki i rozliczenie" spellcheck="false"></textarea>
+      <div class="pv-actions">
+        <span class="hint">Tekst dla wspólnika albo znajomych. Możesz go poprawić przed skopiowaniem.</span>
+        <button class="btn primary" id="copyDlv">Kopiuj</button>
+      </div>
+    </div>
+  </div></div>
+</dialog>
+<dialog id="pmDlg" class="pm" aria-labelledby="pmTitle">
+  <div class="dh"><h2 id="pmTitle">Wiadomość dla osoby</h2><button class="x" id="closePm" aria-label="Zamknij">×</button></div>
+  <div class="preview">
+    <textarea id="pmText" aria-label="Treść wiadomości" spellcheck="false"></textarea>
+    <div class="pv-actions">
+      <span class="hint">Możesz poprawić tekst przed skopiowaniem.</span>
+      <button class="btn primary" id="copyPm">Kopiuj</button>
+    </div>
+  </div>
+</dialog>
+<dialog id="askDlg" class="ask" aria-labelledby="askText">
+  <p id="askText"></p>
+  <div class="ask-b"><button class="btn" id="askNo">Anuluj</button><button class="btn primary" id="askYes">Tak</button></div>
 </dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
