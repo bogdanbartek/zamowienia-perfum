@@ -36,7 +36,7 @@ const blank=()=>({people:[],settings:{rates:{flakon:85,tester:70,sospiro:60},war
 let S=blank();
 let C={warehouse:DEFAULT_CATALOG.warehouse,items:DEFAULT_CATALOG.items,updatedAt:null};
 let CAT=[],CATMAP=new Map(),CATMK=new Map();
-const ui={sel:null,q:'',b:'all',g:'all',t:'all',limit:120,tab:'cat',wf:'all'};
+const ui={sel:null,q:'',b:'all',g:'all',t:'all',nw:false,limit:120,tab:'cat',wf:'all'};
 
 function expand(row){const [raw,g,t,p]=row;const sm=raw.toUpperCase().match(/\+\s*(\d+)\s*Z[ŁL]/);
   const name=raw.replace(/\+\s*\d+\s*z[łl]/i,' ').replace(/\s+/g,' ').trim();
@@ -44,7 +44,8 @@ function expand(row){const [raw,g,t,p]=row;const sm=raw.toUpperCase().match(/\+\
   it.k=it.t?'tester':it.p?'sospiro':'flakon';Object.assign(it,split(name));it.key=(it.name+' '+it.fq).toUpperCase().replace(/[’‘`]/g,"'");return it;}
 // klucz do rozpoznania tych samych perfum mimo drobnych zmian zapisu (spacje, PREMIUM, PUSZKA...)
 const mk=id=>id.slice(0,2)+id.slice(2).toUpperCase().replace(/PREMIUM|PREMIU\b|\bLUX\b|PUSZKA/g,'').replace(/[^A-Z0-9&ĄĆĘŁŃÓŚŹŻ]/g,'');
-function buildCat(){CAT=C.items.map(expand);CATMAP=new Map(CAT.map(i=>[i.id,i]));CATMK=new Map(CAT.map(i=>[mk(i.id),i]));}
+// C.nw = klucze perfum, których nie było w poprzednim katalogu (zaznaczane na zielono do następnej aktualizacji)
+function buildCat(){const nw=new Set(C.nw||[]);CAT=C.items.map(expand);CAT.forEach(i=>i.nw=nw.has(mk(i.id)));CATMAP=new Map(CAT.map(i=>[i.id,i]));CATMK=new Map(CAT.map(i=>[mk(i.id),i]));}
 const catOf=l=>CATMAP.get(l.id)||CATMK.get(mk(String(l.id||'')));
 const catDesc=it=>TYPES[it.k]+(it.s?` +${it.s} zł`:'');
 // 'gone' = nie ma w katalogu, 'diff' = w katalogu jest inny rodzaj (np. już nie Sospiro) albo inna dopłata
@@ -160,15 +161,16 @@ function renderPerson(){
 function hl(name,q){if(!q)return esc(name);let out=esc(name);q.split(/\s+/).filter(Boolean).forEach(w=>{const re=new RegExp('('+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','ig');out=out.replace(re,'<mark>$1</mark>')});return out}
 function renderCatalog(){
   const q=ui.q.trim().toUpperCase().replace(/[’‘`]/g,"'");const words=q.split(/\s+/).filter(Boolean);
-  const list=CAT.filter(i=>(ui.b==='all'||i.br===ui.b)&&(ui.g==='all'||i.g===ui.g)&&(ui.t==='all'||(ui.t==='T'?i.t:ui.t==='P'?i.p:!i.t))&&words.every(w=>i.key.includes(w)));
+  const list=CAT.filter(i=>(ui.b==='all'||i.br===ui.b)&&(ui.g==='all'||i.g===ui.g)&&(ui.t==='all'||(ui.t==='T'?i.t:ui.t==='P'?i.p:!i.t))&&(!ui.nw||i.nw)&&words.every(w=>i.key.includes(w)));
   const p=person(ui.sel);const inCart=new Map(p?p.items.map(l=>[l.id,l.q]):[]);
-  $('#catInfo').textContent=`${list.length} z ${CAT.length}`;const hq=ui.q.trim();
+  const nNew=CAT.filter(i=>i.nw).length;
+  $('#catInfo').textContent=`${list.length} z ${CAT.length}`+(nNew?` · ${nNew} nowych od ${new Date(C.updatedAt).toLocaleDateString('pl-PL')}`:'');const hq=ui.q.trim();
   $('#clist').innerHTML=(list.length?`<li class="chead" aria-hidden="true"><span>Marka</span><span>Model</span><span>Płeć</span><span>Rodzaj</span><span>Pojemność</span><span></span><span class="r">Cena</span><span></span></li>`:'')
-    +list.slice(0,ui.limit).map(i=>{const href=frag(i.fq);return `<li class="ci">
+    +list.slice(0,ui.limit).map(i=>{const href=frag(i.fq);return `<li class="ci${i.nw?' new':''}">
     <a class="cb" href="${esc(href)}" target="_blank" rel="noopener" tabindex="-1">${hl(i.br,hq)}</a>
     <a class="cm" href="${esc(href)}" target="_blank" rel="noopener" title="Otwórz na Fragrantica">${i.mo?hl(i.mo,hq):'—'}<span class="ext" aria-hidden="true">↗</span></a>
     <span class="cg">${GONE[i.g]||''}</span><span class="cc">${i.conc}</span><span class="cv">${i.vol}</span>
-    <div class="badges">${i.t?'<span class="b t">Tester</span>':''}${i.p?'<span class="b p">Sospiro promo</span>':''}${i.s?`<span class="b s">+${i.s} zł</span>`:''}${i.ex?`<span class="b e">${esc(i.ex)}</span>`:''}</div>
+    <div class="badges">${i.nw?'<span class="b n">Nowe</span>':''}${i.t?'<span class="b t">Tester</span>':''}${i.p?'<span class="b p">Sospiro promo</span>':''}${i.s?`<span class="b s">+${i.s} zł</span>`:''}${i.ex?`<span class="b e">${esc(i.ex)}</span>`:''}</div>
     <span class="cpr">${p?zl((num(p.r[i.k])||0)+i.s):''}</span>
     <button class="addbtn${inCart.has(i.id)?' in-cart':''}" data-add="${esc(i.id)}" ${p?'':'disabled title="Najpierw wybierz osobę"'}>${inCart.has(i.id)?'+1 (×'+inCart.get(i.id)+')':'Dodaj'}</button></li>`}).join('')
     +(list.length>ui.limit?`<li><button class="btn more" id="more">Pokaż więcej (${list.length-ui.limit})</button></li>`:'')
@@ -181,6 +183,8 @@ function renderFilters(){
   $('#bf').innerHTML=`<option value="all">Wszystkie marki</option>`+[...bc].sort((a,b)=>a[0].localeCompare(b[0],'pl')).map(([b,n])=>`<option value="${esc(b)}"${ui.b===b?' selected':''}>${esc(b)} (${n})</option>`).join('');
   $('#gf').innerHTML=g.map(([k,v])=>`<button class="chip${ui.g===k?' on':''}" data-g="${k}" aria-pressed="${ui.g===k}">${v}</button>`).join('');
   $('#tf').innerHTML=t.map(([k,v])=>`<button class="chip${ui.t===k?' on':''}" data-t="${k}" aria-pressed="${ui.t===k}">${v}</button>`).join('');
+  const nNew=CAT.filter(i=>i.nw).length;if(!nNew)ui.nw=false;
+  $('#nf').hidden=!nNew;$('#nf').innerHTML=nNew?`<button class="chip nwchip${ui.nw?' on':''}" data-nw aria-pressed="${ui.nw}">Tylko nowe (${nNew})</button>`:'';
 }
 function renderFor(){const p=person(ui.sel);
   $('#forBar').innerHTML=S.people.length?`<label for="forSel">Dodajesz dla</label><select class="in" id="forSel">${S.people.map(x=>`<option value="${x.id}"${x.id===ui.sel?' selected':''}>${esc(x.name)} (${esc(wName(x.w))})</option>`).join('')}</select>
@@ -240,6 +244,7 @@ $('#q').addEventListener('input',e=>{ui.q=e.target.value;ui.limit=120;$('#clist'
 $('#bf').addEventListener('change',e=>{ui.b=e.target.value;ui.limit=120;$('#clist').scrollTop=0;renderCatalog()});
 $('#gf').addEventListener('click',e=>{const b=e.target.closest('[data-g]');if(b){ui.g=b.dataset.g;ui.limit=120;$('#clist').scrollTop=0;renderFilters();renderCatalog()}});
 $('#tf').addEventListener('click',e=>{const b=e.target.closest('[data-t]');if(b){ui.t=b.dataset.t;ui.limit=120;$('#clist').scrollTop=0;renderFilters();renderCatalog()}});
+$('#nf').addEventListener('click',e=>{if(e.target.closest('[data-nw]')){ui.nw=!ui.nw;ui.limit=120;$('#clist').scrollTop=0;renderFilters();renderCatalog()}});
 // doczytuj kolejne pozycje, gdy lista dojedzie prawie do końca
 $('#clist').addEventListener('scroll',e=>{const l=e.target;if($('#more')&&l.scrollTop+l.clientHeight>l.scrollHeight-400){ui.limit+=200;renderCatalog()}});
 $('#clist').addEventListener('click',e=>{const b=e.target.closest('[data-add]');if(b){const it=CATMAP.get(b.dataset.add);if(it)addItem(it);return}
@@ -254,7 +259,8 @@ $('#catFile').addEventListener('change',async e=>{const f=e.target.files[0];e.ta
     const added=[...newK].filter(k=>!oldK.has(k)).length,gone=[...oldK].filter(k=>!newK.has(k)).length;
     // podejrzanie mały plik (np. eksport tylko kilku ostatnich wiadomości) - nie podmieniaj bez pytania
     if(r.items.length<CAT.length*0.7&&!await ask(`Nowy katalog ma ${r.items.length} pozycji, a obecny ${CAT.length}. Z listy zniknie ${gone} perfum.\n\nCzy to na pewno pełny eksport kanału?`,'Podmień katalog'))return;
-    C={warehouse:r.warehouse||C.warehouse,items:r.items.map(i=>[i.raw,i.g,i.t?1:0,i.p?1:0]),updatedAt:new Date().toISOString()};
+    C={warehouse:r.warehouse||C.warehouse,items:r.items.map(i=>[i.raw,i.g,i.t?1:0,i.p?1:0]),updatedAt:new Date().toISOString(),nw:[...newK].filter(k=>!oldK.has(k))};
+    ui.nw=false;
     buildCat();const moved=relink();saveCatalog();renderAll();
     const pr=problems(),who=[...new Set(pr.gone.map(x=>x.p.name))];
     toast(`Katalog zaktualizowany: ${CAT.length} pozycji, ${added} nowych, ${gone} zniknęło.`

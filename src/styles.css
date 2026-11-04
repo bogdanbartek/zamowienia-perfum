@@ -152,6 +152,9 @@ table{width:100%;border-collapse:collapse}
 .b.p{background:var(--promo-soft);color:var(--promo)}
 .b.s{background:var(--accent-soft);color:var(--accent)}
 .b.x{background:var(--unpaid-soft);color:var(--unpaid)}
+.b.n{background:var(--paid);color:var(--surface)}
+.ci.new{background:var(--promo-soft);box-shadow:inset 3px 0 0 var(--paid)}
+.chip.nwchip{color:var(--paid)}
 .qty{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .qty button{border:0;background:var(--surface-2);width:28px;height:30px;font-weight:700}
 .qty button:hover{background:var(--line)}
