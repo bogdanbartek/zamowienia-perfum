@@ -73,7 +73,12 @@ const owe=p=>Math.round((pTot(p)-paidAmt(p))*100)/100;
 const settled=p=>p.paid&&owe(p)===0;
 const payLabel=p=>!p.paid?'niezapłacone':owe(p)>0?'dopłata '+zl(owe(p)):owe(p)<0?'do zwrotu '+zl(-owe(p)):'zapłacone';
 const paidBtnHtml=p=>'<span class="box"></span>'+(!p.paid?'Nie zapłacił(a)':owe(p)>0?'Brakuje '+zl(owe(p)):owe(p)<0?'Do zwrotu '+zl(-owe(p)):'Zapłacił(a)');
-function togglePaid(p){if(settled(p)){p.paid=false;p.pa=null}else{p.paid=true;p.pa=pTot(p)}save();renderAll();}
+// gdy część nie przyszła, pytamy, za ile osoba zapłaciła: za całe zamówienie (wtedy wychodzi zwrot) czy tylko za to, co przyszło
+async function togglePaid(p){if(settled(p)){p.paid=false;p.pa=null;save();renderAll();return}
+  let amt=pTot(p);
+  if(!p.paid&&pMiss(p)){const r=await ask(`${p.name}: część perfum nie przyszła.\n\nIle zapłacił(a)?\nZa całe zamówienie: ${zl(pOrd(p))} (wtedy do zwrotu ${zl(pOrd(p)-pTot(p))})\nTylko za to, co przyszło: ${zl(pTot(p))}`,'Za całe zamówienie','Za to, co przyszło');
+    if(r==null)return;if(r)amt=pOrd(p);}
+  p.paid=true;p.pa=amt;save();renderAll();}
 
 /* ---------- persistence (localStorage, tylko ten komputer) ---------- */
 const LS='perfumy-zamowienia-v1',LSC='perfumy-katalog-v1',LST='perfumy-zakladka';
@@ -90,8 +95,9 @@ function normalizeState(d){const b=blank();const s=Object.assign(b,d||{});s.sett
 function addPerson(name,w){const p={id:uid(),name,w,paid:false,pa:null,c:S.people.reduce((m,x)=>Math.max(m,(x.c||0)+1),0),r:Object.assign({},S.settings.rates),items:[]};S.people.push(p);ui.sel=p.id;save();renderAll();}
 function addItem(it){const p=person(ui.sel);if(!p)return;const l=p.items.find(x=>x.id===it.id);if(l)l.q++;else p.items.push({id:it.id,n:it.name,raw:it.raw,k:it.k,s:it.s,q:1,m:0,o:null});save();renderAll();}
 // własne okno potwierdzenia zamiast confirm(): natywne okienko w Electronie na Windows blokuje potem pisanie w polach
-function ask(msg,yes='Tak'){const d=$('#askDlg'),y=$('#askYes');$('#askText').textContent=msg;y.textContent=yes;d.showModal();y.focus();
-  return new Promise(res=>{const done=v=>{d.close();res(v)};y.onclick=()=>done(true);$('#askNo').onclick=()=>done(false);d.oncancel=e=>{e.preventDefault();done(false)}})}
+// wynik: true = tak, false = drugi przycisk, null = zamknięte Esc (gdy podano własny drugi przycisk)
+function ask(msg,yes='Tak',no){const d=$('#askDlg'),y=$('#askYes'),n=$('#askNo');$('#askText').textContent=msg;y.textContent=yes;n.textContent=no||'Anuluj';d.showModal();y.focus();
+  return new Promise(res=>{const done=v=>{d.close();res(v)};y.onclick=()=>done(true);n.onclick=()=>done(false);d.oncancel=e=>{e.preventDefault();done(no?null:false)}})}
 let toastT;function toast(m,ms=3200){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),ms)}
 
 /* ---------- render ---------- */
@@ -353,12 +359,12 @@ function buildDelivery(){
   S.people.forEach(p=>p.items.forEach(l=>{if(wp[l.k]==null)wKnown=false;const u=(wp[l.k]||0)+l.s;ordQ+=l.q;arrQ+=arrived(l);ordW+=u*l.q;arrW+=u*arrived(l)}));
   const groups=st.partners.map((n,i)=>({n,ps:S.people.filter(p=>p.w===i)}));
   const orphan=S.people.filter(p=>!(p.w in st.partners));if(orphan.length)groups.push({n:'Bez wspólnika',ps:orphan});
-  groups.forEach(g=>{g.tot=g.ps.reduce((a,p)=>a+pTot(p),0);g.col=g.ps.reduce((a,p)=>a+Math.max(0,owe(p)),0);g.ref=g.ps.reduce((a,p)=>a+Math.max(0,-owe(p)),0)});
+  groups.forEach(g=>{g.tot=g.ps.reduce((a,p)=>a+pTot(p),0);g.col=g.ps.reduce((a,p)=>a+Math.max(0,owe(p)),0);g.ref=g.ps.reduce((a,p)=>a+Math.max(0,-owe(p)),0);g.miss=g.ps.reduce((a,p)=>a+pOrd(p)-pTot(p),0)});
   const L=['BRAKI W DOSTAWIE',''];
   groups.forEach(g=>{if(!g.ps.length)return;L.push(g.n.toUpperCase());
-    const miss=g.ps.flatMap(p=>p.items.filter(l=>l.m).map(l=>`- ${p.name}: ${niceName(l)} x${l.m}`));
+    const miss=g.ps.flatMap(p=>p.items.filter(l=>l.m).map(l=>`- ${p.name}: ${niceName(l)} x${l.m} (${zl(unit(p,l)*l.m)})`));
     L.push(...(miss.length?['Nie przyszło:',...miss]:['Wszystko przyszło.']));
-    const set=g.ps.filter(p=>owe(p)!==0).map(p=>`- ${p.name}: ${owe(p)>0?'do zapłaty '+zl(owe(p)):'do zwrotu '+zl(-owe(p))}${p.paid?'':' (jeszcze nic nie płacił/a)'}`);
+    const set=g.ps.filter(p=>owe(p)!==0).map(p=>`- ${p.name}: ${owe(p)>0?'do zapłaty '+zl(owe(p)):'do zwrotu '+zl(-owe(p))}${!p.paid&&pMiss(p)?` (zamiast ${zl(pOrd(p))}, bez tego, co nie przyszło)`:''}${p.paid?'':' - jeszcze nic nie płacił/a'}`);
     if(set.length)L.push('Rozliczenie:',...set);L.push('')});
   if(wKnown&&ordQ)L.push(`HURTOWNIA: za to, co przyszło ${zl(arrW)}${arrW!==ordW?` (zamiast ${zl(ordW)})`:''} + wysyłka`);
   const stat=(v,lab,c='')=>`<div class="stat ${c}"><b>${v}</b>${lab}</div>`;
@@ -367,7 +373,8 @@ function buildDelivery(){
     <h3>Hurtownia</h3>${wKnown?`<div class="dstats">${stat(zl(ordW),'za całe zamówienie')}${stat(zl(arrW),'za to, co przyszło')}</div><p class="hint" style="margin:0">Bez kosztu wysyłki.</p>`
       :`<p class="hint" style="margin:0">Uzupełnij ceny hurtowni w oknie „Wiadomość do hurtowni”, żeby policzyć tę kwotę.</p>`}
     <h3>Wspólnicy</h3>${groups.map(g=>`<div class="pcard"><div><b>${esc(g.n)}</b> <span class="hint">${plural(g.ps.length)}</span></div>
-      <div class="dstats">${stat(zl(g.tot),'za to, co przyszło')}${stat(zl(g.col),'do wzięcia od osób','unpaid')}${stat(zl(g.ref),'do oddania osobom')}</div></div>`).join('')}`;
+      <div class="dstats">${stat(zl(g.tot),'za to, co przyszło')}${g.miss?stat(zl(g.miss),'nie przyszło (wartość)','unpaid'):''}${stat(zl(g.col),'do wzięcia od osób','unpaid')}${stat(zl(g.ref),'do oddania osobom')}</div>
+      ${g.ps.filter(p=>!p.paid&&pMiss(p)).length?`<p class="hint" style="margin:6px 0 0">${esc(g.ps.filter(p=>!p.paid&&pMiss(p)).map(p=>p.name).join(', '))}: nieoznaczone jako zapłacone, więc nie ma zwrotu, tylko mniejsza kwota do zapłaty. Jeśli już zapłacili za całość, kliknij przy nich „Nie zapłacił(a)” i wybierz „Za całe zamówienie”.</p>`:''}</div>`).join('')}`;
   return {text:L.join('\n').trim(),html};
 }
 function openDelivery(){const r=buildDelivery();$('#dlvSum').innerHTML=r.html;$('#dlvText').value=r.text;ddlg.showModal();}
