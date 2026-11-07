@@ -64,6 +64,12 @@ const pQty=p=>p.items.reduce((a,l)=>a+l.q,0);
 const pMiss=p=>p.items.reduce((a,l)=>a+l.m,0);
 const pTot=p=>p.items.reduce((a,l)=>a+unit(p,l)*arrived(l),0);
 const pOrd=p=>p.items.reduce((a,l)=>a+unit(p,l)*l.q,0);
+// zarobek: koszt w hurtowni (cena hurtowni + dopłata z katalogu) za to, co przyszło, vs. kwota od osób
+const wPrices=()=>({flakon:num(S.settings.wf),tester:num(S.settings.wt),sospiro:num(S.settings.ws)});
+const pCost=p=>{const wp=wPrices();return p.items.reduce((a,l)=>a+((wp[l.k]||0)+l.s)*arrived(l),0)};
+const costKnown=ps=>{const wp=wPrices();return ps.every(p=>p.items.every(l=>wp[l.k]!=null))};
+const pGroups=()=>{const g=S.settings.partners.map((n,i)=>({n,ps:S.people.filter(p=>p.w===i)}));const o=S.people.filter(p=>!(p.w in S.settings.partners));if(o.length)g.push({n:'Bez wspólnika',ps:o});return g};
+const pEarnTxt=p=>p.items.length&&costKnown([p])?` Hurtowo ${zl(pCost(p))}, zarobek ${zl(pTot(p)-pCost(p))}.`:'';
 const wName=w=>S.settings.partners[w]??'Bez wspólnika';
 const wOpts=sel=>S.settings.partners.map((n,i)=>`<option value="${i}"${i===sel?' selected':''}>${esc(n)}</option>`).join('');
 const niceName=l=>{const it=catOf(l);return (it?[it.br,it.mo,it.vol,it.conc].filter(Boolean).join(' '):l.n)+(l.k==='tester'?' (tester)':'')};
@@ -114,8 +120,17 @@ function renderTally(){
     <div class="stat unpaid"><b>${zl(due)}</b>do odebrania</div>
     ${back?`<div class="stat unpaid"><b>${zl(back)}</b>do zwrotu (nadpłaty)</div>`:''}</div>
     ${withSum.length?`<div class="bar" role="img" aria-label="Udział osób w kwocie">${withSum.map(p=>`<span class="${owe(p)>0?'unp':''}" style="flex-grow:${pTot(p)};background-color:${COLORS[p.c%COLORS.length]}" title="${esc(p.name)}: ${zl(pTot(p))} (${payLabel(p)})"></span>`).join('')}</div>
-    <div class="legend">${withSum.map(p=>`<span><i style="background:${COLORS[p.c%COLORS.length]}"></i>${esc(p.name)} ${zl(pTot(p))}</span>`).join('')}<span>paski w kreskę = jeszcze nie zapłacili</span></div>`:''}`;
+    <div class="legend">${withSum.map(p=>`<span><i style="background:${COLORS[p.c%COLORS.length]}"></i>${esc(p.name)} ${zl(pTot(p))}</span>`).join('')}<span>paski w kreskę = jeszcze nie zapłacili</span></div>`:''}
+    ${renderEarn()}`;
 }
+function renderEarn(){const ps=S.people.filter(p=>p.items.length);if(!ps.length)return'';
+  if(!costKnown(ps))return `<p class="hint earn-hint">Żeby zobaczyć zarobek wspólników, wpisz ceny hurtowni za sztukę w oknie „Wiadomość do hurtowni”.</p>`;
+  const rows=pGroups().filter(g=>g.ps.length).map(g=>{const c=g.ps.reduce((a,p)=>a+pCost(p),0),r=g.ps.reduce((a,p)=>a+pTot(p),0);return{n:g.n,c,r,e:r-c}});
+  const T=rows.reduce((a,x)=>({c:a.c+x.c,r:a.r+x.r,e:a.e+x.e}),{c:0,r:0,e:0});
+  const tr=(x,cls='')=>`<tr class="${cls}"><th>${esc(x.n)}</th><td>${zl(x.c)}</td><td>${zl(x.r)}</td><td class="${x.e<0?'neg':'pos'}">${zl(x.e)}</td></tr>`;
+  return `<table class="earn"><thead><tr><th>Wspólnik</th><th>Ceny hurtowni</th><th>Z marżą (od osób)</th><th>Zarobek</th></tr></thead>
+    <tbody>${rows.map(x=>tr(x)).join('')}${rows.length>1?tr(Object.assign({n:'Razem'},T),'sum'):''}</tbody></table>
+    <p class="hint earn-hint">Za to, co przyszło. Bez kosztu wysyłki. Dopłaty z katalogu (+25 zł itd.) są w obu kolumnach, więc nie zmieniają zarobku.</p>`;}
 const plural=n=>n+(n===1?' osoba':n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?' osoby':' osób');
 function renderObar(){const st=S.settings;
   const chip=(k,lab,ps)=>`<button class="chip${String(ui.wf)===String(k)?' on':''}" data-wf="${k}">${esc(lab)} <span class="cnt">${ps.length} os. · ${zl(ps.reduce((a,p)=>a+pTot(p),0))}</span></button>`;
@@ -162,7 +177,7 @@ function renderPerson(){
       <td class="r" data-ls>${zl(unit(p,l)*arrived(l))}</td>
       <td class="r"><button class="x" data-rm aria-label="Usuń pozycję">×</button></td></tr>`).join('')}
     </tbody></table></div>`:`<div class="empty" style="border-top:1px solid var(--line)"><strong>${esc(p.name)} nie ma jeszcze perfum</strong>Kliknij „Dodaj perfumy”, żeby wybrać je z listy.</div>`}
-    <div class="pfoot"><span class="hint">${pQty(p)} szt.${pMiss(p)?`, ${pMiss(p)} nie przyszło (zamówione za ${zl(pOrd(p))})`:''}. Zmiana stawki przelicza wszystkie pozycje bez ręcznej ceny.</span><span class="tot" id="ptot">${zl(pTot(p))}</span></div>`;
+    <div class="pfoot"><span class="hint">${pQty(p)} szt.${pMiss(p)?`, ${pMiss(p)} nie przyszło (zamówione za ${zl(pOrd(p))})`:''}.<span id="pearn">${pEarnTxt(p)}</span> Zmiana stawki przelicza wszystkie pozycje bez ręcznej ceny.</span><span class="tot" id="ptot">${zl(pTot(p))}</span></div>`;
 }
 function hl(name,q){if(!q)return esc(name);let out=esc(name);q.split(/\s+/).filter(Boolean).forEach(w=>{const re=new RegExp('('+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','ig');out=out.replace(re,'<mark>$1</mark>')});return out}
 function renderCatalog(){
@@ -204,6 +219,7 @@ function renderAll(){renderTally();renderTabs();renderObar();renderPeople();rend
 function refreshNumbers(){renderTally();renderObar();renderPeople();renderFor();renderCatalog();const p=person(ui.sel);if(!p)return;
   document.querySelectorAll('#personPanel tr[data-i]').forEach(tr=>{const l=p.items[+tr.dataset.i];if(!l)return;tr.querySelector('[data-ls]').textContent=zl(unit(p,l)*arrived(l));const inp=tr.querySelector('[data-ov]');if(l.o==null&&document.activeElement!==inp)inp.value=unit(p,l)});
   const t=$('#ptot');if(t)t.textContent=zl(pTot(p));
+  const pe=$('#pearn');if(pe)pe.textContent=pEarnTxt(p);
   const pb=$('#ppaid');if(pb){pb.innerHTML=paidBtnHtml(p);pb.classList.toggle('on',settled(p))}}
 
 /* ---------- events ---------- */
@@ -336,7 +352,7 @@ function regen(){const r=buildMsg();$('#msgText').value=r.text;
 $('#openMsg').addEventListener('click',()=>{fillForm();regen();dlg.showModal();});
 $('#closeMsg').addEventListener('click',()=>dlg.close());
 dlg.addEventListener('click',e=>{if(e.target===dlg)dlg.close()});
-$('#msgForm').addEventListener('input',e=>{const k=e.target.dataset.k;if(!k)return;S.settings[k]=e.target.value;save();regen();});
+$('#msgForm').addEventListener('input',e=>{const k=e.target.dataset.k;if(!k)return;S.settings[k]=e.target.value;save();regen();if(/^w[fts]$/.test(k)){renderTally();renderPerson()}});
 $('#regen').addEventListener('click',regen);
 async function copyText(ta,ok){try{await navigator.clipboard.writeText(ta.value);toast(ok)}catch(e){ta.select();try{document.execCommand('copy');toast(ok)}catch(_){toast('Zaznacz tekst i skopiuj Ctrl+C')}}}
 $('#copyMsg').addEventListener('click',()=>copyText($('#msgText'),'Skopiowano wiadomość'));
@@ -367,13 +383,14 @@ function buildDelivery(){
     const set=g.ps.filter(p=>owe(p)!==0).map(p=>`- ${p.name}: ${owe(p)>0?'do zapłaty '+zl(owe(p)):'do zwrotu '+zl(-owe(p))}${!p.paid&&pMiss(p)?` (zamiast ${zl(pOrd(p))}, bez tego, co nie przyszło)`:''}${p.paid?'':' - jeszcze nic nie płacił/a'}`);
     if(set.length)L.push('Rozliczenie:',...set);L.push('')});
   if(wKnown&&ordQ)L.push(`HURTOWNIA: za to, co przyszło ${zl(arrW)}${arrW!==ordW?` (zamiast ${zl(ordW)})`:''} + wysyłka`);
+  if(wKnown&&ordQ){L.push('','ZAROBEK (bez wysyłki)');groups.forEach(g=>{if(g.ps.length)L.push(`- ${g.n}: ${zl(g.tot-g.ps.reduce((a,p)=>a+pCost(p),0))}`)})}
   const stat=(v,lab,c='')=>`<div class="stat ${c}"><b>${v}</b>${lab}</div>`;
   const html=`${ordQ===arrQ?`<p class="hint" style="margin:0">Nie zaznaczono żadnych braków. Włącz „Po dostawie: zaznaczam braki” w zakładce Zamówienia osób i odznacz perfumy, które nie przyszły.</p>`:''}
     <h3>Sztuki</h3><div class="dstats">${stat(ordQ,'zamówione')}${stat(arrQ,'przyszło','paid')}${stat(ordQ-arrQ,'nie przyszło','unpaid')}</div>
     <h3>Hurtownia</h3>${wKnown?`<div class="dstats">${stat(zl(ordW),'za całe zamówienie')}${stat(zl(arrW),'za to, co przyszło')}</div><p class="hint" style="margin:0">Bez kosztu wysyłki.</p>`
       :`<p class="hint" style="margin:0">Uzupełnij ceny hurtowni w oknie „Wiadomość do hurtowni”, żeby policzyć tę kwotę.</p>`}
     <h3>Wspólnicy</h3>${groups.map(g=>`<div class="pcard"><div><b>${esc(g.n)}</b> <span class="hint">${plural(g.ps.length)}</span></div>
-      <div class="dstats">${stat(zl(g.tot),'za to, co przyszło')}${g.miss?stat(zl(g.miss),'nie przyszło (wartość)','unpaid'):''}${stat(zl(g.col),'do wzięcia od osób','unpaid')}${stat(zl(g.ref),'do oddania osobom')}</div>
+      <div class="dstats">${stat(zl(g.tot),'za to, co przyszło')}${wKnown?stat(zl(g.tot-g.ps.reduce((a,p)=>a+pCost(p),0)),'zarobek','paid'):''}${g.miss?stat(zl(g.miss),'nie przyszło (wartość)','unpaid'):''}${stat(zl(g.col),'do wzięcia od osób','unpaid')}${stat(zl(g.ref),'do oddania osobom')}</div>
       ${g.ps.filter(p=>!p.paid&&pMiss(p)).length?`<p class="hint" style="margin:6px 0 0">${esc(g.ps.filter(p=>!p.paid&&pMiss(p)).map(p=>p.name).join(', '))}: nieoznaczone jako zapłacone, więc nie ma zwrotu, tylko mniejsza kwota do zapłaty. Jeśli już zapłacili za całość, kliknij przy nich „Nie zapłacił(a)” i wybierz „Za całe zamówienie”.</p>`:''}</div>`).join('')}`;
   return {text:L.join('\n').trim(),html};
 }

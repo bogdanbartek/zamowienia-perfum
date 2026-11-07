@@ -64,6 +64,14 @@ button{cursor:pointer}
 .bar span{display:block;height:100%;min-width:3px;transition:flex-grow .3s}
 .bar span.unp{background-image:repeating-linear-gradient(135deg,transparent 0 5px,rgba(255,255,255,.35) 5px 8px)}
 .legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;font-size:13px;color:var(--muted)}
+.earn{width:100%;max-width:640px;border-collapse:collapse;margin-top:14px;font-size:14px}
+.earn th,.earn td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.earn th:first-child{text-align:left}
+.earn thead th{font-size:12.5px;font-weight:600;color:var(--muted)}
+.earn tbody th{font-weight:600}
+.earn td.pos{color:var(--paid);font-weight:600}.earn td.neg{color:var(--unpaid);font-weight:600}
+.earn tr.sum th,.earn tr.sum td{border-bottom:0;font-weight:700}
+.earn-hint{margin:6px 0 0;font-size:12.5px}
 .legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:0}
 
 /* tabs */
